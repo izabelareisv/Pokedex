@@ -1,0 +1,13 @@
+# A focused baseline: errors that catch correctness issues and unfinished code.
+only_rules:
+  - force_cast
+  - force_try
+  - duplicate_imports
+  - empty_string
+  - unused_optional_binding
+  - todo
+included:
+  - PokedexViper
+  - PokedexViperTests
+excluded:
+  - .build

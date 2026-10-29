@@ -1,0 +1,23 @@
+name: iOS CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Report runner Xcode version
+        run: xcodebuild -version
+      - name: SwiftLint
+        run: |
+          if ! command -v swiftlint >/dev/null; then brew install swiftlint; fi
+          swiftlint lint --strict
+      - name: Core tests (Swift 6)
+        run: swift test
+      - name: iOS simulator tests
+        run: |
+          DEVICE_ID=$(xcrun simctl list devices available --json | python3 -c 'import json,sys; devices=json.load(sys.stdin)["devices"]; print(next(d["udid"] for runtime, ds in devices.items() if "iOS" in runtime for d in ds if d["name"].startswith("iPhone")))')
+          xcodebuild test -project PokedexViper.xcodeproj -scheme PokedexViper -destination "platform=iOS Simulator,id=$DEVICE_ID" -resultBundlePath build/TestResults.xcresult CODE_SIGNING_ALLOWED=NO

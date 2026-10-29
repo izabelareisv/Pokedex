@@ -1,0 +1,67 @@
+import Foundation
+import os
+
+enum APIError: Error, Equatable, Sendable, LocalizedError {
+    case invalidURL
+    case invalidResponse
+    case httpStatus(Int)
+    case decoding
+    case offline
+    case transport
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL: String(localized: "The Pokémon address is invalid.")
+        case .invalidResponse: String(localized: "The server returned an invalid response.")
+        case .httpStatus: String(localized: "The server is unavailable. Please try again.")
+        case .decoding: String(localized: "The Pokémon data could not be read.")
+        case .offline: String(localized: "You are offline. Check your connection and try again.")
+        case .transport: String(localized: "Could not connect. Please try again.")
+        }
+    }
+
+    static func map(_ error: any Error) -> APIError {
+        if let error = error as? APIError { return error }
+        if let error = error as? URLError,
+            [.notConnectedToInternet, .networkConnectionLost].contains(error.code)
+        {
+            return .offline
+        }
+        return .transport
+    }
+}
+
+protocol HTTPClientProtocol: Sendable {
+    func request<T: Decodable & Sendable>(url: URL) async throws -> T
+}
+
+struct APIClient: HTTPClientProtocol {
+    private let session: URLSession
+    private let logger = Logger(subsystem: "com.PokedexViper", category: "Networking")
+
+    init(session: URLSession = .shared) { self.session = session }
+
+    func request<T: Decodable & Sendable>(url: URL) async throws -> T {
+        do {
+            try Task.checkCancellation()
+            logger.debug("GET \(url.path, privacy: .public)")
+            let (data, response) = try await session.data(from: url)
+            guard let response = response as? HTTPURLResponse else { throw APIError.invalidResponse }
+            guard (200..<300).contains(response.statusCode) else {
+                logger.error("HTTP status: \(response.statusCode)")
+                throw APIError.httpStatus(response.statusCode)
+            }
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            do { return try decoder.decode(T.self, from: data) } catch {
+                logger.error("Response decoding failed for \(String(describing: T.self), privacy: .public)")
+                throw APIError.decoding
+            }
+        } catch {
+            if error is CancellationError || (error as? URLError)?.code == .cancelled {
+                throw CancellationError()
+            }
+            throw APIError.map(error)
+        }
+    }
+}
