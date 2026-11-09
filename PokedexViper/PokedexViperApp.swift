@@ -11,12 +11,11 @@ struct PokedexApp: App {
         WindowGroup {
             Group {
                 if storageFailed {
-                    ContentUnavailableView {
-                        Label("Could not open favorites", systemImage: "externaldrive.badge.exclamationmark")
-                    } description: {
-                        Text("Please try again.")
-                    } actions: {
-                        Button("Try again") { openStorage() }
+                    ScrollView {
+                        PokemonEmptyStateView(
+                            title: "Could not open favorites",
+                            message: "Please try again.",
+                            onAction: openStorage)
                     }
                 } else if showingSplash || container == nil {
                     SplashView()
@@ -24,6 +23,7 @@ struct PokedexApp: App {
                     SearchRouter.createModule().modelContainer(container)
                 }
             }
+            .environment(\.locale, Locale(identifier: "en_US"))
             .task {
                 if container == nil && !storageFailed { openStorage() }
                 guard showingSplash else { return }

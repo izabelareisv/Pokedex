@@ -10,6 +10,7 @@ protocol SearchInteractorProtocol: Sendable {
     func getPokemonList(url: URL?) async throws -> PokemonPage
     func getPokemonDetails(url: String) async throws -> ServiceValue<Pokemon>
     func getDescription(for pokemon: Pokemon) async throws -> String?
+    func findPokemon(query: String) async throws -> ServiceValue<Pokemon>?
 }
 
 struct SearchInteractor: SearchInteractorProtocol {
@@ -31,5 +32,21 @@ struct SearchInteractor: SearchInteractorProtocol {
 
     func getDescription(for pokemon: Pokemon) async throws -> String? {
         try await pokemonService.fetchSpeciesDescription(url: pokemon.speciesURL)
+    }
+}
+
+// Reuse detail loading so searches share the same cache and offline fallback.
+extension SearchInteractorProtocol {
+    func findPokemon(query: String) async throws -> ServiceValue<Pokemon>? {
+        guard query.range(of: "^[a-z0-9-]+$", options: .regularExpression) != nil else {
+            return nil
+        }
+        let url = URL(string: "https://pokeapi.co/api/v2/pokemon/")!
+            .appendingPathComponent(query, isDirectory: true)
+        do {
+            return try await getPokemonDetails(url: url.absoluteString)
+        } catch APIError.httpStatus(404) {
+            return nil
+        }
     }
 }

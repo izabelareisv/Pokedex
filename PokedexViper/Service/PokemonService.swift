@@ -65,10 +65,8 @@ struct PokemonService: PokemonServiceProtocol {
             throw APIError.invalidURL
         }
         let species: SpeciesDetailsResponse = try await client.request(url: url)
-        let preferred = Locale.current.language.languageCode?.identifier ?? "en"
-        let entry =
-            species.flavorTextEntries.first { $0.language.name == preferred }
-            ?? species.flavorTextEntries.first { $0.language.name == "en" }
+        // Keep API content consistent with the English interface on every device.
+        let entry = species.flavorTextEntries.first { $0.language.name == "en" }
         return entry?.flavorText.replacingOccurrences(of: "\n", with: " ").replacingOccurrences(
             of: "\u{000C}", with: " ")
     }

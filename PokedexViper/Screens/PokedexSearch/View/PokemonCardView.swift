@@ -27,6 +27,6 @@ struct PokemonCardView: View {
         .contentShape(RoundedRectangle(cornerRadius: DesignSystem.Dimensions.cornerRadius))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("Pokémon \(pokemon.name), number \(pokemon.id)"))
-        .accessibilityValue(isFavorite ? Text("Favorite") : Text(""))
+        .accessibilityValue(isFavorite ? Text("Favorite") : Text(verbatim: ""))
     }
 }

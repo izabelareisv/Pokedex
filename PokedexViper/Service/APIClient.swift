@@ -7,25 +7,31 @@ enum APIError: Error, Equatable, Sendable, LocalizedError {
     case httpStatus(Int)
     case decoding
     case offline
+    case certificateTrust
     case transport
 
     var errorDescription: String? {
         switch self {
-        case .invalidURL: String(localized: "The Pokémon address is invalid.")
-        case .invalidResponse: String(localized: "The server returned an invalid response.")
-        case .httpStatus: String(localized: "The server is unavailable. Please try again.")
-        case .decoding: String(localized: "The Pokémon data could not be read.")
-        case .offline: String(localized: "You are offline. Check your connection and try again.")
-        case .transport: String(localized: "Could not connect. Please try again.")
+        case .invalidURL: "The Pokémon address is invalid."
+        case .invalidResponse: "The server returned an invalid response."
+        case .httpStatus: "The server is unavailable. Please try again."
+        case .decoding: "The Pokémon data could not be read."
+        case .offline: "You are offline. Check your connection and try again."
+        case .certificateTrust:
+            "The network certificate is not trusted. Try another network or contact your IT administrator."
+        case .transport: "Could not connect. Please try again."
         }
     }
 
     static func map(_ error: any Error) -> APIError {
         if let error = error as? APIError { return error }
-        if let error = error as? URLError,
-            [.notConnectedToInternet, .networkConnectionLost].contains(error.code)
-        {
-            return .offline
+        if let error = error as? URLError {
+            if [.notConnectedToInternet, .networkConnectionLost].contains(error.code) {
+                return .offline
+            }
+            if error.code == .secureConnectionFailed {
+                return .certificateTrust
+            }
         }
         return .transport
     }

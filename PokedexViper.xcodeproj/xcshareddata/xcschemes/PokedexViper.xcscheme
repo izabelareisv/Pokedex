@@ -29,8 +29,15 @@
       shouldUseLaunchSchemeArgsEnv = "YES"
       shouldAutocreateTestPlan = "YES">
       <Testables>
-         <TestableReference skipped="NO">
-            <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="A00000000000000000000001" BuildableName="PokedexViperTests.xctest" BlueprintName="PokedexViperTests" ReferencedContainer="container:PokedexViper.xcodeproj"/>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "A00000000000000000000001"
+               BuildableName = "PokedexViperTests.xctest"
+               BlueprintName = "PokedexViperTests"
+               ReferencedContainer = "container:PokedexViper.xcodeproj">
+            </BuildableReference>
          </TestableReference>
       </Testables>
    </TestAction>

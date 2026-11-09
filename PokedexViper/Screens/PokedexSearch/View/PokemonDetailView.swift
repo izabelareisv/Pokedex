@@ -2,8 +2,11 @@ import SwiftData
 import SwiftUI
 
 struct PokemonDetailView: View {
+
     let pokemon: Pokemon
     let presenter: SearchPresenter
+
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Query private var favorites: [FavoritePokemon]
     @State private var description: String?
@@ -12,89 +15,64 @@ struct PokemonDetailView: View {
     @State private var saveFailed = false
 
     private var favorite: FavoritePokemon? { favorites.first { $0.pokemonID == pokemon.id } }
+    private var favoriteStatus: PokemonFavoriteStatus {
+        PokemonFavoriteStatus(
+            pokemonID: pokemon.id,
+            favoriteIDs: Set(favorites.map(\.pokemonID)))
+    }
     private var color: Color { DesignSystem.Colors.pokemonType(pokemon.types.first ?? .unknown) }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: DesignSystem.Dimensions.spacing) {
-                CachedPokemonImage(url: pokemon.imageURL).frame(
-                    height: DesignSystem.Dimensions.detailArtworkSize)
-                ViewThatFits {
-                    HStack { typeBadges }
-                    VStack { typeBadges }
+        ZStack(alignment: .top) {
+            // One solid background covers the header, safe areas and space around the card.
+            color.ignoresSafeArea()
+
+            ScrollView {
+                VStack(spacing: -42) {
+                    PokemonDetailHeaderView(pokemon: pokemon,
+                                            isFavorite: favoriteStatus.isFavorite,
+                                            onBack: { dismiss() },
+                                            onToggleFavorite: toggleFavorite)
+                    detailsCard
                 }
-                Text("About").font(.title2).bold()
-                ViewThatFits {
-                    HStack(spacing: DesignSystem.Dimensions.spacing) { measurements }
-                    VStack(spacing: DesignSystem.Dimensions.spacing) { measurements }
+                .overlay(alignment: .top) {
+                    PokemonDetailArtworkView(imageURL: pokemon.imageURL)
+                        .zIndex(1)
                 }
-                if !pokemon.moves.isEmpty {
-                    Text("Moves").font(.headline)
-                    Text(pokemon.moves.joined(separator: ", "))
-                }
-                if isLoadingDescription { ProgressView("Loading description…") }
-                if let description { Text(description).frame(maxWidth: .infinity, alignment: .leading) }
-                if let descriptionError {
-                    Text(descriptionError.localizedDescription).foregroundStyle(.secondary)
-                    Button("Retry description") { Task { await loadDescription() } }
-                }
-                Text("Base Stats").font(.title2).bold()
-                ForEach(pokemon.stats, id: \.name) { stat in
-                    VStack(alignment: .leading) {
-                        HStack {
-                            Text(stat.title)
-                            Spacer()
-                            Text(stat.value, format: .number)
-                        }
-                        ProgressView(value: stat.fraction).tint(color)
-                    }
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(Text("\(stat.title): \(stat.value)"))
-                }
+                .padding(.bottom, 20)
             }
-            .padding()
         }
-        .background(color.opacity(DesignSystem.Colors.detailTintOpacity))
-        .navigationTitle(pokemon.name)
-        .toolbar {
-            Button {
-                toggleFavorite()
-            } label: {
-                Image(systemName: favorite == nil ? "heart" : "heart.fill")
+        .toolbar(.hidden, for: .navigationBar)
+        .sheet(isPresented: $saveFailed) {
+            ScrollView {
+                PokemonEmptyStateView(
+                    title: AppStrings.saveFavoriteTitle,
+                    message: AppStrings.tryAgain,
+                    actionTitle: AppStrings.ok,
+                    onAction: { saveFailed = false })
             }
-            .accessibilityLabel(favorite == nil ? Text("Add to favorites") : Text("Remove from favorites"))
-        }
-        .alert("Could not save favorite", isPresented: $saveFailed) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("Please try again.")
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
         .task { await loadDescription() }
     }
 
-    private var typeBadges: some View {
-        ForEach(pokemon.types, id: \.self) { type in
-            Text(type.title)
-                .font(.headline).padding(DesignSystem.Dimensions.typeBadgePadding)
-                .background(
-                    DesignSystem.Colors.pokemonType(type).opacity(DesignSystem.Colors.typeBadgeOpacity),
-                    in: Capsule())
-        }
-    }
+    private var detailsCard: some View {
+        VStack(spacing: 18) {
+            PokemonAboutSection(pokemon: pokemon,
+                                description: description,
+                                isLoadingDescription: isLoadingDescription,
+                                descriptionError: descriptionError,
+                                color: color,
+                                onRetry: { Task { await loadDescription() } })
 
-    private var measurements: some View {
-        Group {
-            Label {
-                Text("Weight: \(pokemon.formattedWeight)")
-            } icon: {
-                Image(systemName: "scalemass")
-            }
-            Label {
-                Text("Height: \(pokemon.formattedHeight)")
-            } icon: {
-                Image(systemName: "ruler")
-            }
+            PokemonStatsSection(stats: pokemon.stats, color: color)
         }
+        .padding(.horizontal, 20)
+        .padding(.top, 48)
+        .padding(.bottom, 24)
+        .background(.background, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.horizontal, 12)
     }
 
     private func loadDescription() async {

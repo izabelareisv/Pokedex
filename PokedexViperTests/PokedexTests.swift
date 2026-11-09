@@ -301,7 +301,8 @@ struct PresenterTests {
         }
         #expect(pokemon.map(\.id) == [4])
         presenter.updateFilters(query: "no-match", type: nil, favoritesOnly: false, favoriteIDs: [])
-        #expect(presenter.state == .empty)
+        #expect(presenter.state == .loading)
+        #expect(presenter.isSearching)
     }
 }
 
@@ -385,5 +386,149 @@ struct AdditionalPresenterTests {
         #expect(pokemon.count == 2)
         #expect(!presenter.isOffline)
         #expect(await interactor.listCalls == 1)
+    }
+}
+
+
+private actor RemoteSearchInteractor: SearchInteractorProtocol {
+    let gate: Gate?
+    private(set) var searchCalls = 0
+
+    init(gate: Gate? = nil) { self.gate = gate }
+
+    func getPokemonList(url: URL?) async throws -> PokemonPage {
+        PokemonPage(
+            results: [PokemonResults(name: "pikachu", url: "https://test.local/25/")],
+            next: nil, isOffline: false)
+    }
+
+    func getPokemonDetails(url: String) async throws -> ServiceValue<Pokemon> {
+        ServiceValue(value: Pokemon(response: MockPokemonService.pikachu))
+    }
+
+    func getDescription(for pokemon: Pokemon) async throws -> String? { nil }
+
+    func findPokemon(query: String) async throws -> ServiceValue<Pokemon>? {
+        searchCalls += 1
+        if let gate { await gate.wait() }
+        if query == "offline" { throw APIError.offline }
+        guard query == "raichu" else { return nil }
+        let base = MockPokemonService.pikachu
+        return ServiceValue(value: Pokemon(response: PokemonDetailsResponse(
+            id: 26, name: "raichu", height: base.height, weight: base.weight,
+            types: base.types, abilities: base.abilities, stats: base.stats,
+            moves: base.moves, sprites: base.sprites, species: base.species)))
+    }
+}
+
+@MainActor
+struct SearchTransitionTests {
+    private func search(_ query: String, in presenter: SearchPresenter) {
+        presenter.updateFilters(query: query, type: nil, favoritesOnly: false, favoriteIDs: [])
+    }
+
+    @Test func localMissLoadsDuringDebounceAndUntilRemoteSuccess() async {
+        let gate = Gate()
+        let interactor = RemoteSearchInteractor(gate: gate)
+        let presenter = SearchPresenter(interactor: interactor)
+        await presenter.fetchPokemonList()
+
+        search("raichu", in: presenter)
+        #expect(presenter.state == .loading)
+        #expect(presenter.isSearching)
+        #expect(await interactor.searchCalls == 0)
+
+        let task = Task { await presenter.searchIfNeeded() }
+        await gate.waitForEntry()
+        #expect(presenter.state == .loading)
+        await gate.release()
+        await task.value
+
+        guard case .loaded(let pokemon) = presenter.state else {
+            Issue.record("Expected remote results without a premature empty state")
+            return
+        }
+        #expect(pokemon.map(\.id) == [26])
+        #expect(!presenter.isSearching)
+    }
+
+    @Test func noResultsAppearsOnlyAfterRemoteLookupCompletes() async {
+        let interactor = RemoteSearchInteractor()
+        let presenter = SearchPresenter(interactor: interactor)
+        await presenter.fetchPokemonList()
+
+        search("missing", in: presenter)
+        #expect(presenter.state == .loading)
+        await presenter.searchIfNeeded()
+        #expect(presenter.state == .empty)
+        #expect(await interactor.searchCalls == 1)
+        #expect(!presenter.isSearching)
+    }
+
+    @Test func previousErrorIsClearedBeforeSearchingAnotherQuery() async {
+        let presenter = SearchPresenter(interactor: RemoteSearchInteractor())
+        await presenter.fetchPokemonList()
+        search("offline", in: presenter)
+        #expect(presenter.state == .loading)
+        await presenter.searchIfNeeded()
+        #expect(presenter.state == .failed(.offline))
+
+        search("raichu", in: presenter)
+        #expect(presenter.state == .loading)
+        #expect(presenter.searchError == nil)
+        await presenter.searchIfNeeded()
+        guard case .loaded(let pokemon) = presenter.state else {
+            Issue.record("Expected results for the new query")
+            return
+        }
+        #expect(pokemon.map(\.id) == [26])
+    }
+
+    @Test func localMatchesAppearImmediatelyWithoutRemoteLoading() async {
+        let interactor = RemoteSearchInteractor()
+        let presenter = SearchPresenter(interactor: interactor)
+        await presenter.fetchPokemonList()
+        search("pika", in: presenter)
+        guard case .loaded(let pokemon) = presenter.state else {
+            Issue.record("Expected immediate local results")
+            return
+        }
+        #expect(pokemon.map(\.id) == [25])
+        #expect(!presenter.isSearching)
+        await presenter.searchIfNeeded()
+        #expect(await interactor.searchCalls == 0)
+    }
+
+    @Test func clearingQueryDuringDebounceRestoresLocalResults() async {
+        let interactor = RemoteSearchInteractor()
+        let presenter = SearchPresenter(interactor: interactor)
+        await presenter.fetchPokemonList()
+        search("raichu", in: presenter)
+        #expect(presenter.state == .loading)
+        search("", in: presenter)
+        await presenter.searchIfNeeded()
+        guard case .loaded(let pokemon) = presenter.state else {
+            Issue.record("Expected local results after clearing the query")
+            return
+        }
+        #expect(pokemon.map(\.id) == [25])
+        #expect(!presenter.isSearching)
+        #expect(await interactor.searchCalls == 0)
+    }
+
+    @Test func pageArrivingDuringDebounceAvoidsUnnecessaryLookup() async {
+        let interactor = RemoteSearchInteractor()
+        let presenter = SearchPresenter(interactor: interactor)
+        search("pikachu", in: presenter)
+        #expect(presenter.state == .loading)
+        await presenter.fetchPokemonList()
+        await presenter.searchIfNeeded()
+        guard case .loaded(let pokemon) = presenter.state else {
+            Issue.record("Expected the new local result to end the pending search")
+            return
+        }
+        #expect(pokemon.map(\.id) == [25])
+        #expect(!presenter.isSearching)
+        #expect(await interactor.searchCalls == 0)
     }
 }

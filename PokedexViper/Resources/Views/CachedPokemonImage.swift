@@ -9,13 +9,22 @@ struct CachedPokemonImage: View {
         Group {
             if let image {
                 Image(uiImage: image).resizable().scaledToFit()
+                    .accessibilityHidden(true)
             } else if failed || url == nil {
-                Image(systemName: "photo").resizable().scaledToFit().padding()
+                VStack(spacing: 4) {
+                    EmptyStateIllustration(size: 48)
+                    Text("Image unavailable")
+                        .font(.caption2)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.75)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ProgressView()
             }
         }
-        .accessibilityHidden(true)
         .task(id: url) {
             image = nil
             failed = false
