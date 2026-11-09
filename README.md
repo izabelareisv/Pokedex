@@ -2,17 +2,30 @@
 
 [![iOS CI](https://github.com/izabelareisv/Pokedex/actions/workflows/ci.yml/badge.svg)](https://github.com/izabelareisv/Pokedex/actions/workflows/ci.yml)
 
-An iOS app for exploring Pokémon, saving favorites, comparing base stats and navigating evolution families. Built with **Swift 6, SwiftUI, Observation and SwiftData**, using [PokéAPI](https://pokeapi.co/).
+Explore Pokémon, save favorites, compare base stats and discover evolution families in a native iOS app built with **Swift 6, SwiftUI, Observation and SwiftData**, powered by [PokéAPI](https://pokeapi.co/).
 
-The project focuses on testable architecture, structured concurrency, resilient data loading and a consistent English interface.
+The implementation combines VIPER responsibilities with native SwiftUI state and navigation. Its engineering focus is predictable presentation state, controlled concurrency and reliable data access, with cancellation, partial failures and offline recovery handled throughout the main user flows.
 
-[Features](#features) · [Run locally](#run-locally) · [Architecture](#architecture) · [Tests](#tests) · [Validation status](#validation-status)
+[Engineering highlights](#engineering-highlights) · [Features](#features) · [Run locally](#run-locally) · [Architecture](#architecture) · [Tests](#tests)
 
 <p align="center">
-  <img src="PokedexViper/pikachuRunning.gif" width="160" alt="Pikachu running loading animation">
+  <img src="PokedexViper/pikachuRunning.gif" width="100" alt="Pikachu running loading animation">
 </p>
 
-*Bundled animation used during search and pagination.*
+*Pikachu animation used during search and pagination.*
+
+## Engineering highlights
+
+| Focus | Development decisions |
+| --- | --- |
+| Architecture | Defined View, Presenter, Interactor, Entity and Router responsibilities, with injected dependencies and [typed navigation](PokedexViper/Screens/PokedexSearch/Router/SearchRouter.swift). SwiftUI remains responsible for rendering and observation. |
+| Swift concurrency | `async/await`, bounded task groups, `Sendable` models and actor-isolated caches. The [presenter](PokedexViper/Screens/PokedexSearch/Presenter/SearchPresenter.swift) updates UI state on `@MainActor` and guards against stale asynchronous results. |
+| Resilient loading | Local-first search, explicit loading/empty/error states, typed HTTP failures and targeted retries. Successful results remain available when part of a request batch fails. |
+| Persistence and caching | SwiftData favorites, an [atomic JSON cache](PokedexViper/Cache/PokemonCache.swift) with expiration and offline fallback, and a shared image loader that deduplicates in-flight downloads. |
+| Regression testing | **59 Swift Testing declarations** covering data access, presentation transitions, concurrency, persistence and domain rules. Actor fakes, `URLProtocol` and injectable timing keep scenarios reproducible without live API requests. See [Tests](#tests) for the inventory and execution status. |
+| Native presentation | Adaptive SwiftUI layouts, light/dark palettes, VoiceOver labels, Dynamic Type handling and a UIKit bridge for GIF playback that respects Reduce Motion. |
+
+The comparison and evolution features also exercise domain modeling: stats are aligned by API identifiers, incomplete values remain explicit, and evolution trees preserve branching paths and alternative requirements. These rules are covered independently of the views.
 
 ## Features
 
@@ -108,7 +121,7 @@ flowchart TD
 
 Protocols at the HTTP, cache, service and interactor boundaries allow tests to replace I/O. List/favorite detail batches allow up to **six concurrent requests**; evolution families allow up to **four concurrent member lookups**. Successful pages merge by ID, while partial failures retain successful results and retry only missing details.
 
-This structure uses more types than a small MVVM app would require. It makes boundaries and failure handling explicit while keeping SwiftUI observation and navigation native. The comparison screen uses pure domain logic and existing Pokémon data.
+These boundaries keep presentation decisions, data orchestration and persistence responsibilities explicit. Services and interactors can be exercised with controlled dependencies, while SwiftUI uses native observation and navigation. The comparison screen reuses existing Pokémon values and keeps its selection and stat-comparison rules in testable domain types.
 
 ### Cache and offline behavior
 
@@ -147,7 +160,7 @@ Package.swift                   # Non-UI core and test targets
 
 ## Tests
 
-The repository currently contains **59 test declarations**: **58 core tests** and **1 hosted iOS persistence test**. Two declarations are parameterized and exercise multiple inputs. Counts refer to declared test functions; execution evidence is recorded in [Validation status](#validation-status).
+The test suite contains **59 declarations**: **58 core tests** and **1 hosted iOS persistence test**, including two parameterized declarations. The scenarios cover both user-facing behavior and the data/concurrency rules behind it. Execution evidence is recorded in [Validation status](#validation-status).
 
 | Area | Declarations | Scenarios |
 | --- | ---: | --- |
