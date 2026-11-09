@@ -616,3 +616,236 @@ struct PokemonComparisonTests {
         #expect(empty.statMaximum == 150)
     }
 }
+
+private enum EvolutionFixtures {
+    static let root = "https://test.local/pokemon-species/1/"
+    static let chainURL = "https://test.local/evolution-chain/77/"
+
+    static func resource(_ name: String, _ url: String = "") -> [String: Any] {
+        ["name": name, "url": url]
+    }
+
+    static func data(_ object: [String: Any]) throws -> Data {
+        try JSONSerialization.data(withJSONObject: object)
+    }
+
+    static func decode<T: Decodable>(_ type: T.Type, _ object: [String: Any]) throws -> T {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode(type, from: data(object))
+    }
+
+    static func link(_ id: Int, details: [[String: Any]] = [], children: [[String: Any]] = []) -> [String: Any] {
+        ["species": resource("species-\(id)", "https://test.local/pokemon-species/\(id)/"),
+         "evolution_details": details, "evolves_to": children]
+    }
+
+    static func chain(branches: Int = 2) -> [String: Any] {
+        ["chain": link(1, children: (0..<branches).map { index in
+            link(index + 2, details: [["trigger": resource("level-up"), "min_level": 16, "is_default": true]])
+        })]
+    }
+
+    static func species(_ id: Int, hasChain: Bool = true) -> [String: Any] {
+        var result: [String: Any] = [
+            "flavor_text_entries": [["flavor_text": "English text.", "language": resource("en")]],
+            "varieties": [
+                ["is_default": false, "pokemon": resource("alternate", "https://test.local/pokemon/99999/")],
+                ["is_default": true, "pokemon": resource("default", "https://test.local/pokemon/\(10000 + id)/")]
+            ]
+        ]
+        if hasChain { result["evolution_chain"] = ["url": chainURL] }
+        return result
+    }
+
+    static func detail(_ id: Int, speciesID: Int) -> [String: Any] {
+        ["id": id, "name": "pokemon-\(id)", "height": 4, "weight": 60, "types": [],
+         "abilities": [], "stats": [], "moves": [], "sprites": [:],
+         "species": resource("species-\(speciesID)", "https://test.local/pokemon-species/\(speciesID)/")]
+    }
+
+    static func current() throws -> Pokemon {
+        Pokemon(response: try decode(PokemonDetailsResponse.self, detail(999, speciesID: 1)))
+    }
+}
+
+private actor EvolutionGate {
+    private var entered = false
+    private var entryWaiter: CheckedContinuation<Void, Never>?
+    private var releaseWaiter: CheckedContinuation<Void, Never>?
+    func wait() async {
+        entered = true
+        entryWaiter?.resume()
+        entryWaiter = nil
+        await withCheckedContinuation { releaseWaiter = $0 }
+    }
+    func waitForEntry() async {
+        if entered { return }
+        await withCheckedContinuation { entryWaiter = $0 }
+    }
+    func release() { releaseWaiter?.resume(); releaseWaiter = nil }
+}
+
+private actor EvolutionFixtureClient: HTTPClientProtocol {
+    private(set) var urls: [String] = []
+    private(set) var active = 0
+    private(set) var peak = 0
+    let branches: Int
+    let error: APIError?
+    let gate: EvolutionGate?
+    let hasChain: Bool
+
+    init(branches: Int = 2, error: APIError? = nil, gate: EvolutionGate? = nil, hasChain: Bool = true) {
+        self.branches = branches
+        self.error = error
+        self.gate = gate
+        self.hasChain = hasChain
+    }
+
+    func request<T: Decodable & Sendable>(url: URL) async throws -> T {
+        urls.append(url.absoluteString)
+        active += 1
+        peak = max(peak, active)
+        defer { active -= 1 }
+        if let gate, url.pokemonID == 10002, url.path.contains("/pokemon/") { await gate.wait() }
+        try await Task.sleep(for: .milliseconds(5))
+        if let error { throw error }
+        let object: [String: Any]
+        if url.path.contains("evolution-chain") {
+            object = EvolutionFixtures.chain(branches: branches)
+        } else if url.path.contains("pokemon-species") {
+            object = EvolutionFixtures.species(url.pokemonID!, hasChain: hasChain)
+        } else {
+            let id = url.pokemonID!
+            object = EvolutionFixtures.detail(id, speciesID: id - 10000)
+        }
+        return try EvolutionFixtures.decode(T.self, object)
+    }
+}
+
+struct EvolutionTests {
+    @Test func treePreservesBranchesAndDefaultEvolutionMethods() throws {
+        let response = try EvolutionFixtures.decode(EvolutionChainResponse.self, ["chain": EvolutionFixtures.link(
+            1, children: [
+                EvolutionFixtures.link(2, details: [
+                    ["trigger": EvolutionFixtures.resource("level-up"), "min_level": 10, "is_default": false],
+                    ["trigger": EvolutionFixtures.resource("level-up"), "min_level": 16, "is_default": true]
+                ], children: [EvolutionFixtures.link(4)]),
+                EvolutionFixtures.link(3)
+            ])])
+        let references = PokemonEvolutionFamily.references(from: response)
+        #expect(references.map { $0.species.name } == ["species-1", "species-2", "species-4", "species-3"])
+        #expect(references.map(\.depth) == [0, 1, 2, 1])
+        #expect(references[2].parentName == "Species 2")
+        #expect(references[3].parentName == "Species 1")
+        #expect(references[0].conditions.isEmpty)
+        #expect(references[1].conditions == ["Level 16"])
+        #expect(references[3].conditions == ["Special conditions"])
+    }
+
+    @Test func alternativeConditionsStaySeparateAndSpecialRequirementsStayVisible() throws {
+        let level: [String: Any] = [
+            "trigger": EvolutionFixtures.resource("level-up"), "min_level": 20,
+            "min_happiness": 220, "time_of_day": "night", "is_default": true
+        ]
+        let item: [String: Any] = [
+            "trigger": EvolutionFixtures.resource("use-item"), "item": EvolutionFixtures.resource("moon-stone"),
+            "region": EvolutionFixtures.resource("alola"), "required_pokemon_form": EvolutionFixtures.resource("form-a"),
+            "evolved_pokemon_form": EvolutionFixtures.resource("form-b"), "is_default": true
+        ]
+        let response = try EvolutionFixtures.decode(EvolutionChainResponse.self, ["chain": EvolutionFixtures.link(
+            1, children: [EvolutionFixtures.link(2, details: [level, level, item])])])
+        let conditions = PokemonEvolutionFamily.references(from: response)[1].conditions
+        #expect(conditions.count == 2)
+        #expect(conditions[0] == "Level 20 · Friendship ≥ 220 · Night")
+        #expect(conditions[1].contains("Use Moon Stone"))
+        #expect(conditions[1].contains("In Alola"))
+        #expect(conditions[1].contains("From Form A"))
+        #expect(conditions[1].contains("Into Form B"))
+        let special = try EvolutionFixtures.decode(EvolutionDetails.self, [
+            "trigger": EvolutionFixtures.resource("level-up"),
+            "condition_expression": ["expression": "internal-expression", "percentage_chance": 1]
+        ])
+        #expect(special.displayCondition.contains("1% chance"))
+        #expect(special.displayCondition.contains("Additional conditions apply"))
+        #expect(!special.displayCondition.contains("internal-expression"))
+    }
+
+    @Test func familyUsesDefaultVarietiesAndReusesCachedSpeciesAndDetails() async throws {
+        let client = EvolutionFixtureClient()
+        let service = PokemonService(client: client, cache: PokemonCache(directory: nil))
+        let interactor = SearchInteractor(pokemonService: service)
+        let current = try EvolutionFixtures.current()
+        _ = try await service.fetchSpeciesDescription(url: current.speciesURL)
+        let family = try #require(try await interactor.getEvolutionFamily(for: current))
+        #expect(family.value.members.map { $0.pokemon.id } == [999, 10002, 10003])
+        #expect(!family.isOffline)
+        let firstRequests = await client.urls
+        #expect(firstRequests.filter { $0 == EvolutionFixtures.root }.count == 1)
+        #expect(!firstRequests.contains("https://test.local/pokemon/99999/"))
+        #expect(!firstRequests.contains("https://test.local/pokemon/999/"))
+        _ = try await interactor.getEvolutionFamily(for: current)
+        let repeatedRequests = await client.urls
+        #expect(firstRequests == repeatedRequests)
+    }
+
+    @Test func expiredMetadataAndMemberDetailsCanBeReopenedOffline() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let date = Date(timeIntervalSince1970: 1000)
+        let current = try EvolutionFixtures.current()
+        let onlineCache = PokemonCache(directory: directory, ttl: 60, now: { date })
+        let online = SearchInteractor(pokemonService: PokemonService(client: EvolutionFixtureClient(), cache: onlineCache))
+        _ = try await online.getEvolutionFamily(for: current)
+        let offlineCache = PokemonCache(directory: directory, ttl: 60, now: { date.addingTimeInterval(61) })
+        let offline = SearchInteractor(pokemonService: PokemonService(
+            client: EvolutionFixtureClient(error: .offline), cache: offlineCache))
+        let family = try #require(try await offline.getEvolutionFamily(for: current))
+        #expect(family.isOffline)
+        #expect(family.value.members.map { $0.pokemon.id } == [999, 10002, 10003])
+        let unavailable = SearchInteractor(pokemonService: PokemonService(
+            client: EvolutionFixtureClient(error: .httpStatus(500)), cache: offlineCache))
+        do {
+            _ = try await unavailable.getEvolutionFamily(for: current)
+            Issue.record("A server error must not silently return stale data")
+        } catch {
+            #expect(APIError.map(error) == .httpStatus(500))
+        }
+    }
+
+    @Test func familyRequestsAreBoundedAndCancellationPropagates() async throws {
+        let current = try EvolutionFixtures.current()
+        let client = EvolutionFixtureClient(branches: 8)
+        let interactor = SearchInteractor(pokemonService: PokemonService(client: client, cache: PokemonCache(directory: nil)))
+        let family = try #require(try await interactor.getEvolutionFamily(for: current))
+        #expect(family.value.members.count == 9)
+        let peak = await client.peak
+        #expect(peak > 0 && peak <= 4)
+        let gate = EvolutionGate()
+        let delayed = SearchInteractor(pokemonService: PokemonService(
+            client: EvolutionFixtureClient(gate: gate), cache: PokemonCache(directory: nil)))
+        let task = Task { try await delayed.getEvolutionFamily(for: current) }
+        await gate.waitForEntry()
+        task.cancel()
+        await gate.release()
+        do {
+            _ = try await task.value
+            Issue.record("Expected cancellation to propagate")
+        } catch {
+            #expect(error is CancellationError)
+        }
+    }
+
+    @Test func missingChainAndSpeciesWithoutEvolutionsAreHandled() async throws {
+        let current = try EvolutionFixtures.current()
+        let missing = SearchInteractor(pokemonService: PokemonService(
+            client: EvolutionFixtureClient(hasChain: false), cache: PokemonCache(directory: nil)))
+        let noInformation = try await missing.getEvolutionFamily(for: current)
+        #expect(noInformation == nil)
+        let single = SearchInteractor(pokemonService: PokemonService(
+            client: EvolutionFixtureClient(branches: 0), cache: PokemonCache(directory: nil)))
+        let family = try #require(try await single.getEvolutionFamily(for: current))
+        #expect(family.value.members.count == 1)
+        #expect(family.value.members.first?.pokemon.id == current.id)
+    }
+}

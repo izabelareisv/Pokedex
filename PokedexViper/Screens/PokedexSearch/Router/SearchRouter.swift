@@ -18,7 +18,7 @@ final class SearchRouter {
     func destination(for route: Route, presenter: SearchPresenter) -> some View {
         switch route {
         case .details(let pokemon):
-            PokemonDetailView(pokemon: pokemon, presenter: presenter)
+            PokemonDetailView(pokemon: pokemon, presenter: presenter, onShowPokemon: showDetails)
         case .comparison(let comparison):
             PokemonComparisonView(comparison: comparison)
         }

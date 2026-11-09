@@ -267,6 +267,10 @@ final class SearchPresenter {
         try await interactor.getDescription(for: pokemon)
     }
 
+    func evolutionFamily(for pokemon: Pokemon) async throws -> ServiceValue<PokemonEvolutionFamily>? {
+        try await interactor.getEvolutionFamily(for: pokemon)
+    }
+
     private func loadPage(url: URL?) async {
         isLoadingPage = true
         if !didLoadFirstPage, query.isEmpty, allPokemon.isEmpty { state = .loading }

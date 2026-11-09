@@ -14,6 +14,8 @@ enum DesignSystem {
 
     enum Colors {
         static let accent = Color.pokedexRed
+        static let pokedexBackground = Color(red: 201.0 / 255, green: 29.0 / 255, blue: 58.0 / 255)
+        static let pokedexDarkBackground = Color(red: 143.0 / 255, green: 23.0 / 255, blue: 48.0 / 255)
         // Opaque colors prevent overlapping backgrounds from changing the type hue.
         // Each pair keeps white text readable in light mode and dark text readable in dark mode.
         static let onPokemonType = Color(uiColor: UIColor { traits in

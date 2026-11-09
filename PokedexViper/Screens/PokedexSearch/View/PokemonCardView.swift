@@ -37,9 +37,10 @@ struct PokemonCardView: View {
         .background(.background, in: RoundedRectangle(cornerRadius: DesignSystem.Dimensions.cornerRadius))
         .overlay(
             RoundedRectangle(cornerRadius: DesignSystem.Dimensions.cornerRadius).strokeBorder(
-                isSelectedForComparison ? DesignSystem.Colors.accent : Color.secondary.opacity(0.25),
+                isSelectedForComparison ? DesignSystem.Colors.accent : .clear,
                 lineWidth: isSelectedForComparison ? 2 : 1)
         )
+        .shadow(color: .black.opacity(0.10), radius: 6, x: 0, y: 3)
         .contentShape(RoundedRectangle(cornerRadius: DesignSystem.Dimensions.cornerRadius))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("Pokémon \(pokemon.name), number \(pokemon.id)"))

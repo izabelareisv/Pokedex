@@ -8,6 +8,8 @@ struct ServiceValue<Value: Sendable>: Sendable {
 protocol PokemonServiceProtocol: Sendable {
     func fetchPokemonList(url: URL?) async throws -> ServiceValue<PokemonListResponse>
     func fetchPokemonDetails(url: String) async throws -> ServiceValue<PokemonDetailsResponse>
+    func fetchSpecies(url: String) async throws -> ServiceValue<SpeciesDetailsResponse>
+    func fetchEvolutionChain(url: String) async throws -> ServiceValue<EvolutionChainResponse>
     func fetchSpeciesDescription(url: String) async throws -> String?
 }
 
@@ -60,11 +62,50 @@ struct PokemonService: PokemonServiceProtocol {
         }
     }
 
-    func fetchSpeciesDescription(url: String) async throws -> String? {
-        guard let url = URL(string: url), ["https", "http"].contains(url.scheme) else {
+    func fetchSpecies(url: String) async throws -> ServiceValue<SpeciesDetailsResponse> {
+        guard let endpoint = URL(string: url), ["https", "http"].contains(endpoint.scheme) else {
             throw APIError.invalidURL
         }
-        let species: SpeciesDetailsResponse = try await client.request(url: url)
+        if let cached = await cache.species(for: url, allowExpired: false) {
+            return ServiceValue(value: cached)
+        }
+        do {
+            let species: SpeciesDetailsResponse = try await client.request(url: endpoint)
+            await cache.save(species, for: url)
+            return ServiceValue(value: species)
+        } catch {
+            if APIError.map(error) == .offline,
+                let cached = await cache.species(for: url, allowExpired: true)
+            {
+                return ServiceValue(value: cached, isOffline: true)
+            }
+            throw error
+        }
+    }
+
+    func fetchEvolutionChain(url: String) async throws -> ServiceValue<EvolutionChainResponse> {
+        guard let endpoint = URL(string: url), ["https", "http"].contains(endpoint.scheme) else {
+            throw APIError.invalidURL
+        }
+        if let cached = await cache.evolution(for: url, allowExpired: false) {
+            return ServiceValue(value: cached)
+        }
+        do {
+            let evolution: EvolutionChainResponse = try await client.request(url: endpoint)
+            await cache.save(evolution, for: url)
+            return ServiceValue(value: evolution)
+        } catch {
+            if APIError.map(error) == .offline,
+                let cached = await cache.evolution(for: url, allowExpired: true)
+            {
+                return ServiceValue(value: cached, isOffline: true)
+            }
+            throw error
+        }
+    }
+
+    func fetchSpeciesDescription(url: String) async throws -> String? {
+        let species = try await fetchSpecies(url: url).value
         // Keep API content consistent with the English interface on every device.
         let entry = species.flavorTextEntries.first { $0.language.name == "en" }
         return entry?.flavorText.replacingOccurrences(of: "\n", with: " ").replacingOccurrences(

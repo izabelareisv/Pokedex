@@ -12,7 +12,7 @@ struct PokemonDetailHeaderView: View {
                 Image("pokeballBackgroundCard")
                     .renderingMode(.template)
                     .resizable()
-                    .foregroundStyle(DesignSystem.Colors.onPokemonType.opacity(0.12))
+                    .foregroundStyle(DesignSystem.Colors.onPokemonType.opacity(0.30))
                     .scaledToFit()
                     .frame(width: 208, height: 208)
                     .offset(x: proxy.size.width * 0.25, y: 20)

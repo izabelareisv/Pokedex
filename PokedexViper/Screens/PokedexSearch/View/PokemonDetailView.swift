@@ -5,6 +5,7 @@ struct PokemonDetailView: View {
 
     let pokemon: Pokemon
     let presenter: SearchPresenter
+    let onShowPokemon: (Pokemon) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -13,6 +14,7 @@ struct PokemonDetailView: View {
     @State private var descriptionError: APIError?
     @State private var isLoadingDescription = false
     @State private var saveFailed = false
+    @State private var evolutionState: PokemonEvolutionSection.State = .idle
 
     private var favorite: FavoritePokemon? { favorites.first { $0.pokemonID == pokemon.id } }
     private var favoriteStatus: PokemonFavoriteStatus {
@@ -54,7 +56,12 @@ struct PokemonDetailView: View {
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
         }
-        .task { await loadDescription() }
+        .task {
+            // The description fetch caches the species response used by the evolution section.
+            await loadDescription()
+            guard !Task.isCancelled else { return }
+            await loadEvolutions()
+        }
     }
 
     private var detailsCard: some View {
@@ -67,6 +74,13 @@ struct PokemonDetailView: View {
                                 onRetry: { Task { await loadDescription() } })
 
             PokemonStatsSection(stats: pokemon.stats, color: color)
+            Divider()
+            PokemonEvolutionSection(
+                state: evolutionState,
+                currentPokemon: pokemon,
+                color: color,
+                onSelect: onShowPokemon,
+                onRetry: { Task { await loadEvolutions() } })
         }
         .padding(.horizontal, 20)
         .padding(.top, 48)
@@ -82,6 +96,25 @@ struct PokemonDetailView: View {
         defer { isLoadingDescription = false }
         do { description = try await presenter.description(for: pokemon) } catch {
             if !Task.isCancelled { descriptionError = APIError.map(error) }
+        }
+    }
+
+    private func loadEvolutions() async {
+        switch evolutionState {
+        case .loading, .loaded: return
+        case .idle, .failed: break
+        }
+        evolutionState = .loading
+        do {
+            let family = try await presenter.evolutionFamily(for: pokemon)
+            try Task.checkCancellation()
+            evolutionState = .loaded(family)
+        } catch {
+            if Task.isCancelled || error is CancellationError {
+                evolutionState = .idle
+            } else {
+                evolutionState = .failed(APIError.map(error))
+            }
         }
     }
 

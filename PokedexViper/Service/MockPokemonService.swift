@@ -12,6 +12,14 @@ struct MockPokemonService: PokemonServiceProtocol {
         ServiceValue(value: Self.pikachu)
     }
 
+    func fetchSpecies(url: String) async throws -> ServiceValue<SpeciesDetailsResponse> {
+        ServiceValue(value: SpeciesDetailsResponse(flavorTextEntries: [], evolutionChain: nil, varieties: nil))
+    }
+
+    func fetchEvolutionChain(url: String) async throws -> ServiceValue<EvolutionChainResponse> {
+        throw APIError.invalidResponse
+    }
+
     func fetchSpeciesDescription(url: String) async throws -> String? { "An electric Pokémon." }
 
     static let pikachu = PokemonDetailsResponse(

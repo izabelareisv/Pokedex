@@ -2,6 +2,11 @@ import SwiftUI
 
 struct PokemonComparisonView: View {
     let comparison: PokemonComparison
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var canvasColor: Color {
+        colorScheme == .dark ? DesignSystem.Colors.pokedexDarkBackground : DesignSystem.Colors.pokedexBackground
+    }
 
     private var firstColor: Color {
         DesignSystem.Colors.pokemonType(comparison.first.types.first ?? .unknown)
@@ -22,9 +27,13 @@ struct PokemonComparisonView: View {
             }
             .padding()
         }
-        .background(Color(.systemGroupedBackground))
+        .background(canvasColor.ignoresSafeArea())
         .navigationTitle("Compare")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(canvasColor, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
+        .tint(.white)
     }
 
     private var statsSection: some View {

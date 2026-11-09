@@ -14,6 +14,11 @@ struct PokedexView: View {
     @State private var comparisonSelection = PokemonComparisonSelection()
     @Query private var favorites: [FavoritePokemon]
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var canvasColor: Color {
+        colorScheme == .dark ? DesignSystem.Colors.pokedexDarkBackground : DesignSystem.Colors.pokedexBackground
+    }
 
     private var favoriteIDs: Set<Int> { Set(favorites.map(\.pokemonID)) }
     private var filter: Filter {
@@ -42,11 +47,14 @@ struct PokedexView: View {
                 }
                 content
             }
-            .background(Color(.systemGroupedBackground))
+            .background(canvasColor.ignoresSafeArea())
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if isSelectingForComparison { comparisonBar }
             }
             .navigationTitle("Pokédex")
+            .toolbarBackground(canvasColor, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -60,6 +68,7 @@ struct PokedexView: View {
                                 .labelStyle(.titleAndIcon)
                         }
                     }
+                    .tint(.white)
                     .accessibilityHint(isSelectingForComparison
                         ? "Cancels comparison selection"
                         : "Select two Pokémon to compare their stats, types and abilities")
@@ -115,7 +124,10 @@ struct PokedexView: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 12)
-        .background(.regularMaterial)
+        .background(.background)
+        .overlay(alignment: .top) {
+            Rectangle().fill(.secondary.opacity(0.15)).frame(height: 1)
+        }
     }
 
     @ViewBuilder private func comparisonSlot(index: Int) -> some View {
@@ -151,18 +163,29 @@ struct PokedexView: View {
         }
     }
 
-    @ViewBuilder private var offlineBanner: some View {
-        if case .loaded = presenter.state {
-            Label("Offline · showing saved Pokémon", systemImage: "wifi.slash").font(.callout).padding()
-        } else {
-            Label("Offline", systemImage: "wifi.slash").font(.callout).padding()
+    private var offlineBanner: some View {
+        Group {
+            if case .loaded = presenter.state {
+                Label("Offline · showing saved Pokémon", systemImage: "wifi.slash")
+            } else {
+                Label("Offline", systemImage: "wifi.slash")
+            }
         }
+        .font(.callout)
+        .foregroundStyle(.white)
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.black.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal, 16)
+        .padding(.bottom, 12)
     }
 
     private var header: some View {
         VStack(spacing: DesignSystem.Dimensions.spacing) {
             HStack {
-                Image(systemName: "magnifyingglass").accessibilityHidden(true)
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
                 TextField("Search Pokémon", text: $searchText)
                     .textInputAutocapitalization(.never).autocorrectionDisabled()
                     .accessibilityLabel("Search Pokémon")
@@ -175,8 +198,9 @@ struct PokedexView: View {
                     .accessibilityLabel("Clear search")
                 }
             }
-            .padding().background(
-                .background, in: RoundedRectangle(cornerRadius: DesignSystem.Dimensions.cornerRadius))
+            .foregroundStyle(.primary)
+            .padding()
+            .background(.background, in: RoundedRectangle(cornerRadius: DesignSystem.Dimensions.cornerRadius))
             if dynamicTypeSize.isAccessibilitySize {
                 VStack(spacing: 10) {
                     typeFilter
@@ -193,10 +217,12 @@ struct PokedexView: View {
             VStack(alignment: .leading, spacing: 4) {
                 resultsSummary
             }
-            .foregroundStyle(.secondary)
+            .foregroundStyle(.white)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding()
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 12)
     }
 
     private var selectedPokemonType: PokemonType? {
@@ -276,9 +302,11 @@ struct PokedexView: View {
         case .idle, .loading:
             Spacer()
             if presenter.isSearching {
-                PikachuLoadingView()
+                PikachuLoadingView(foregroundColor: .white)
             } else {
                 ProgressView(presenter.isLoadingFavorites ? "Loading favorites…" : "Loading Pokémon…")
+                    .tint(.white)
+                    .foregroundStyle(.white)
             }
             Spacer()
         case .failed(let error):
@@ -294,21 +322,27 @@ struct PokedexView: View {
                         PikachuLoadingView(title: "Loading Pokémon…", imageWidth: 100)
                     }
                 }
+                .background(.background, in: RoundedRectangle(cornerRadius: 16))
+                .padding(.horizontal, 16)
             }
         case .empty:
             ScrollView {
-                if favoritesOnly && favoriteIDs.isEmpty {
-                    PokemonEmptyStateView(
-                        title: "No favorites yet",
-                        message: "Tap the heart on a Pokémon to save it here.")
-                } else {
-                    PokemonEmptyStateView(
-                        title: "No Pokémon found",
-                        message: searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                            ? "Try changing your filters."
-                            : "No Pokémon match “\(searchText)” with the current filters.",
-                        imageSize: 100)
+                VStack {
+                    if favoritesOnly && favoriteIDs.isEmpty {
+                        PokemonEmptyStateView(
+                            title: "No favorites yet",
+                            message: "Tap the heart on a Pokémon to save it here.")
+                    } else {
+                        PokemonEmptyStateView(
+                            title: "No Pokémon found",
+                            message: searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                ? "Try changing your filters."
+                                : "No Pokémon match “\(searchText)” with the current filters.",
+                            imageSize: 100)
+                    }
                 }
+                .background(.background, in: RoundedRectangle(cornerRadius: 16))
+                .padding(.horizontal, 16)
                 footer
             }
         case .loaded(let pokemon):
@@ -364,6 +398,8 @@ struct PokedexView: View {
                     actionTitle: "Retry favorites",
                     isActionDisabled: presenter.isLoadingFavorites,
                     onAction: { Task { await presenter.retry() } })
+                    .background(.background, in: RoundedRectangle(cornerRadius: 16))
+                    .padding(.horizontal, 16)
             }
         } else if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             || presenter.failedCount > 0 || presenter.pageError != nil
@@ -382,6 +418,7 @@ struct PokedexView: View {
                     actionTitle: "Retry missing Pokémon",
                     isActionDisabled: presenter.isLoadingPage,
                     onAction: { Task { await presenter.retry() } })
+                    .background(.background, in: RoundedRectangle(cornerRadius: 16))
             } else if let error = presenter.pageError {
                 PokemonEmptyStateView(
                     title: "Could not load more Pokémon",
@@ -389,11 +426,21 @@ struct PokedexView: View {
                     imageSize: 88,
                     isActionDisabled: presenter.isLoadingPage,
                     onAction: { Task { await presenter.retry() } })
+                    .background(.background, in: RoundedRectangle(cornerRadius: 16))
             }
             if presenter.isLoadingPage {
-                PikachuLoadingView(title: "Loading Pokémon…", imageWidth: 100)
+                PikachuLoadingView(title: "Loading Pokémon…", imageWidth: 100, foregroundColor: .white)
             } else if presenter.canLoadMore, searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                Button("Load more Pokémon") { Task { await presenter.loadNextPage() } }
+                Button {
+                    Task { await presenter.loadNextPage() }
+                } label: {
+                    Text("Load more Pokémon")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(DesignSystem.Colors.accent)
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .background(.background, in: RoundedRectangle(cornerRadius: 16))
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding()
@@ -430,7 +477,10 @@ private struct FilterPill: View {
         .frame(maxWidth: .infinity, minHeight: 44)
         .background {
             RoundedRectangle(cornerRadius: 16)
-                .fill(isActive ? tint.opacity(0.12) : Color(.secondarySystemGroupedBackground))
+                .fill(Color(.secondarySystemGroupedBackground))
+            if isActive {
+                RoundedRectangle(cornerRadius: 16).fill(tint.opacity(0.12))
+            }
         }
         .overlay {
             RoundedRectangle(cornerRadius: 16)
@@ -443,6 +493,7 @@ private struct FilterPill: View {
 private struct PikachuLoadingView: View {
     var title = "Searching Pokémon…"
     var imageWidth: CGFloat = 160
+    var foregroundColor: Color = .secondary
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -452,7 +503,7 @@ private struct PikachuLoadingView: View {
                 .accessibilityHidden(true)
             Text(title)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(foregroundColor)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)

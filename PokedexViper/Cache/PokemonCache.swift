@@ -10,6 +10,10 @@ struct CacheValue<Value: Codable & Sendable>: Codable, Sendable {
 protocol PokemonCaching: Sendable {
     func list(for key: String, allowExpired: Bool) async -> PokemonListResponse?
     func detail(for key: String, allowExpired: Bool) async -> PokemonDetailsResponse?
+    func species(for key: String, allowExpired: Bool) async -> SpeciesDetailsResponse?
+    func evolution(for key: String, allowExpired: Bool) async -> EvolutionChainResponse?
+    func save(_ species: SpeciesDetailsResponse, for key: String) async
+    func save(_ evolution: EvolutionChainResponse, for key: String) async
     func save(_ list: PokemonListResponse, for key: String) async
     func save(_ detail: PokemonDetailsResponse, for key: String) async
 }
@@ -20,6 +24,8 @@ actor PokemonCache: PokemonCaching {
     private let now: @Sendable () -> Date
     private var lists: [String: CacheValue<PokemonListResponse>] = [:]
     private var details: [String: CacheValue<PokemonDetailsResponse>] = [:]
+    private var speciesEntries: [String: CacheValue<SpeciesDetailsResponse>] = [:]
+    private var evolutionEntries: [String: CacheValue<EvolutionChainResponse>] = [:]
     private let logger = Logger(subsystem: "com.PokedexViper", category: "Cache")
 
     init(
@@ -52,6 +58,30 @@ actor PokemonCache: PokemonCaching {
     func save(_ detail: PokemonDetailsResponse, for key: String) {
         let entry = CacheValue(value: detail, savedAt: now())
         details[key] = entry
+        write(entry, key: key)
+    }
+
+    func species(for key: String, allowExpired: Bool = false) -> SpeciesDetailsResponse? {
+        let entry = speciesEntries[key] ?? read(SpeciesDetailsResponse.self, key: key)
+        speciesEntries[key] = entry
+        return valid(entry, allowExpired: allowExpired)
+    }
+
+    func evolution(for key: String, allowExpired: Bool = false) -> EvolutionChainResponse? {
+        let entry = evolutionEntries[key] ?? read(EvolutionChainResponse.self, key: key)
+        evolutionEntries[key] = entry
+        return valid(entry, allowExpired: allowExpired)
+    }
+
+    func save(_ species: SpeciesDetailsResponse, for key: String) {
+        let entry = CacheValue(value: species, savedAt: now())
+        speciesEntries[key] = entry
+        write(entry, key: key)
+    }
+
+    func save(_ evolution: EvolutionChainResponse, for key: String) {
+        let entry = CacheValue(value: evolution, savedAt: now())
+        evolutionEntries[key] = entry
         write(entry, key: key)
     }
 

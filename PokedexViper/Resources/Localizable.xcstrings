@@ -180,6 +180,9 @@
         }
       }
     },
+    "Current Pokémon" : {
+
+    },
     "Dark" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -201,6 +204,9 @@
           }
         }
       }
+    },
+    "Default evolution methods. Conditions can vary by game and form." : {
+
     },
     "Defense" : {
       "extractionState" : "manual",
@@ -239,6 +245,12 @@
       }
     },
     "Equal" : {
+
+    },
+    "Evolution Chain" : {
+
+    },
+    "Evolution information is not available." : {
 
     },
     "Fairy" : {
@@ -306,6 +318,9 @@
           }
         }
       }
+    },
+    "From %@" : {
+
     },
     "Ghost" : {
       "extractionState" : "manual",
@@ -401,6 +416,9 @@
         }
       }
     },
+    "Loading evolutions…" : {
+
+    },
     "Loading favorites…" : {
 
     },
@@ -442,6 +460,9 @@
         }
       }
     },
+    "Offline · showing saved evolutions" : {
+
+    },
     "Offline · showing saved Pokémon" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -477,6 +498,9 @@
           }
         }
       }
+    },
+    "or" : {
+
     },
     "Please try again." : {
       "extractionState" : "manual",
@@ -734,6 +758,9 @@
           }
         }
       }
+    },
+    "This Pokémon has no evolutions." : {
+
     },
     "Toggles selection for comparison" : {
 
