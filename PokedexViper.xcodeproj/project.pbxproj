@@ -46,6 +46,11 @@
 		E70100000000000000000001 /* PokemonEvolution.swift in Sources */ = {isa = PBXBuildFile; fileRef = E70100000000000000000002 /* PokemonEvolution.swift */; };
 		E70100000000000000000003 /* EvolutionChainResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = E70100000000000000000004 /* EvolutionChainResponse.swift */; };
 		E70100000000000000000005 /* PokemonEvolutionSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E70100000000000000000006 /* PokemonEvolutionSection.swift */; };
+		A7E570000000000000000001 /* RegressionTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7E570000000000000000002 /* RegressionTestSupport.swift */; };
+		A7E570000000000000000003 /* FavoritesLoadingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7E570000000000000000004 /* FavoritesLoadingTests.swift */; };
+		A7E570000000000000000005 /* PaginationRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7E570000000000000000006 /* PaginationRegressionTests.swift */; };
+		A7E570000000000000000007 /* SearchRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7E570000000000000000008 /* SearchRegressionTests.swift */; };
+		A7E570000000000000000009 /* NetworkingRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7E57000000000000000000A /* NetworkingRegressionTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -111,6 +116,11 @@
 		E70100000000000000000002 /* PokemonEvolution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PokedexViper/Domain/PokemonEvolution.swift"; sourceTree = "<group>"; };
 		E70100000000000000000004 /* EvolutionChainResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EvolutionChainResponse.swift"; sourceTree = "<group>"; };
 		E70100000000000000000006 /* PokemonEvolutionSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PokemonEvolutionSection.swift"; sourceTree = "<group>"; };
+		A7E570000000000000000002 /* RegressionTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PokedexViperTests/RegressionTestSupport.swift"; sourceTree = "<group>"; };
+		A7E570000000000000000004 /* FavoritesLoadingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PokedexViperTests/FavoritesLoadingTests.swift"; sourceTree = "<group>"; };
+		A7E570000000000000000006 /* PaginationRegressionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PokedexViperTests/PaginationRegressionTests.swift"; sourceTree = "<group>"; };
+		A7E570000000000000000008 /* SearchRegressionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PokedexViperTests/SearchRegressionTests.swift"; sourceTree = "<group>"; };
+		A7E57000000000000000000A /* NetworkingRegressionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PokedexViperTests/NetworkingRegressionTests.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -297,7 +307,7 @@
 			sourceTree = "<group>";
 		};
 		4219F7095BE3458B988CB910 = {isa = PBXGroup; children = (EAE1BBEAEDD1484DB6D13B73,E70100000000000000000002,F2C0A6E9D9014A8100000002,6194BC2C95D04D56817CE0E8,D4A0D19DB35C4DDC9C70104,B0E3ACF3B5CB4A1CB09F971D,36883EBD9A6242AAB9AC02C8,C888028E17C64A5AB11DFF30,); name = "Domain and infrastructure"; sourceTree = "<group>"; };
-		DC36303F135A4338BC23DA55 = {isa = PBXGroup; children = (17FF01C6DA0F4A4BB256DA2D,); name = PokedexViperTests; sourceTree = "<group>"; };
+		DC36303F135A4338BC23DA55 = {isa = PBXGroup; children = (17FF01C6DA0F4A4BB256DA2D,A7E570000000000000000002,A7E570000000000000000004,A7E570000000000000000006,A7E570000000000000000008,A7E57000000000000000000A,); name = PokedexViperTests; sourceTree = "<group>"; };
 		F2C0A6E9D9014A8100000005 /* PokemonComparison */ = {
 			isa = PBXGroup;
 			children = (F2C0A6E9D9014A8100000006 /* View */,);
@@ -426,7 +436,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		0246CDC330E14FD980243DC7 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (8B4C50857B0845AF86B65CBD,); runOnlyForDeploymentPostprocessing = 0; };
+		0246CDC330E14FD980243DC7 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (8B4C50857B0845AF86B65CBD,A7E570000000000000000001,A7E570000000000000000003,A7E570000000000000000005,A7E570000000000000000007,A7E570000000000000000009,); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */

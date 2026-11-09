@@ -48,6 +48,7 @@ enum PokemonSortOption: String, CaseIterable, Hashable, Sendable {
 final class SearchPresenter {
     private let interactor: any SearchInteractorProtocol
     private let concurrencyLimit: Int
+    private let sleep: @Sendable (Duration) async throws -> Void
     private var allPokemon: [Pokemon] = []
     private var nextPage: URL?
     private var didLoadFirstPage = false
@@ -73,9 +74,14 @@ final class SearchPresenter {
     private(set) var failedCount = 0
     var canLoadMore: Bool { nextPage != nil && !favoritesOnly }
 
-    init(interactor: any SearchInteractorProtocol, concurrencyLimit: Int = 6) {
+    init(
+        interactor: any SearchInteractorProtocol,
+        concurrencyLimit: Int = 6,
+        sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
+    ) {
         self.interactor = interactor
         self.concurrencyLimit = max(1, concurrencyLimit)
+        self.sleep = sleep
     }
 
     func fetchPokemonList() async {
@@ -102,7 +108,7 @@ final class SearchPresenter {
             isLoadingPage = true
             defer { isLoadingPage = false }
             do {
-                try await Task.sleep(for: .seconds(3))
+                try await sleep(.seconds(3))
                 let batch = try await loadDetails(failedResults)
                 isOffline = false
                 merge(batch)
@@ -229,7 +235,8 @@ final class SearchPresenter {
             response = .failure(error)
         }
         do {
-            try await ContinuousClock().sleep(until: loadingStarted.advanced(by: .seconds(3)))
+            let remaining = Duration.seconds(3) - loadingStarted.duration(to: .now)
+            if remaining > .zero { try await sleep(remaining) }
             try Task.checkCancellation()
             let result = try response.get()
             guard searchRevision == revision else { return }
@@ -240,7 +247,7 @@ final class SearchPresenter {
                     allPokemon.append(result.value)
                     allPokemon.sort { $0.id < $1.id }
                 }
-                isOffline = isOffline || result.isOffline
+                isOffline = result.isOffline
             } else {
                 missingQueries.insert(searchedQuery)
             }
@@ -279,7 +286,7 @@ final class SearchPresenter {
         do {
             if url != nil {
                 // Show the footer animation before requesting the next page.
-                try await Task.sleep(for: .seconds(3))
+                try await sleep(.seconds(3))
                 guard !favoritesOnly else { return }
             }
             try Task.checkCancellation()
