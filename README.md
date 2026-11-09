@@ -23,6 +23,7 @@ With Xcode installed, [Swift Testing is bundled with the toolchain](https://gith
 
 ## Features
 
+- Compare two Pokémon from the list, favorites or search results. Tap **Compare**, select two cards, then tap **Compare Pokémon**. Compare base stats on a shared scale, with higher values highlighted, plus types, height, weight and abilities. Selection stays available across search and filter changes; comparison reuses loaded data without additional API requests.
 - Pages of 24 Pokémon, starting at Bulbasaur, with at most six concurrent detail requests. Scrolling loads the next page; an explicit load button is also available.
 - Search by loaded name or number with a cancellable 300 ms debounce; type and favorites filters. Filters apply to loaded pages, and pagination stays available while filtering.
 - Detail artwork, localized type/stat names, properly converted kg/m measurements, and species descriptions loaded only on demand.

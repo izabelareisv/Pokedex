@@ -1,6 +1,16 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@: %@; %@: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@: %2$@; %3$@: %4$@"
+          }
+        }
+      }
+    },
     "%@: %lld" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -103,6 +113,12 @@
         }
       }
     },
+    "Cancel" : {
+
+    },
+    "Cancels comparison selection" : {
+
+    },
     "Clear search" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -113,6 +129,12 @@
           }
         }
       }
+    },
+    "Compare" : {
+
+    },
+    "Compare Pokémon" : {
+
     },
     "Could not connect. Please try again." : {
       "extractionState" : "manual",
@@ -191,6 +213,9 @@
         }
       }
     },
+    "Difference: %lld" : {
+
+    },
     "Dragon" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -212,6 +237,9 @@
           }
         }
       }
+    },
+    "Equal" : {
+
     },
     "Fairy" : {
       "extractionState" : "manual",
@@ -323,6 +351,9 @@
         }
       }
     },
+    "Higher values are highlighted. Base stats do not include level or training." : {
+
+    },
     "HP" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -383,6 +414,9 @@
           }
         }
       }
+    },
+    "No base stats available." : {
+
     },
     "Normal" : {
       "extractionState" : "manual",
@@ -488,6 +522,9 @@
         }
       }
     },
+    "Pokémon %lld" : {
+
+    },
     "Psychic" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -498,6 +535,9 @@
           }
         }
       }
+    },
+    "Remove %@ from comparison" : {
+
     },
     "Remove from favorites" : {
       "extractionState" : "manual",
@@ -553,6 +593,15 @@
           }
         }
       }
+    },
+    "Select 2 Pokémon to compare (%lld/2)" : {
+
+    },
+    "Select Pokémon %lld" : {
+
+    },
+    "Select two Pokémon to compare their stats, types and abilities" : {
+
     },
     "Some Pokémon could not be loaded (%lld)." : {
       "extractionState" : "manual",
@@ -685,6 +734,9 @@
           }
         }
       }
+    },
+    "Toggles selection for comparison" : {
+
     },
     "Try again" : {
       "extractionState" : "manual",

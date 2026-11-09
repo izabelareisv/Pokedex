@@ -532,3 +532,87 @@ struct SearchTransitionTests {
         #expect(await interactor.searchCalls == 0)
     }
 }
+
+struct PokemonComparisonTests {
+    private func pokemon(_ id: Int, stats: [(String, Int)] = [("hp", 35)]) -> Pokemon {
+        let base = MockPokemonService.pikachu
+        return Pokemon(response: PokemonDetailsResponse(
+            id: id, name: "pokemon-\(id)", height: base.height, weight: base.weight,
+            types: base.types, abilities: base.abilities,
+            stats: stats.map { Stat(baseStat: $0.1, effort: 0, stat: StatDetails(name: $0.0, url: "")) },
+            moves: base.moves, sprites: base.sprites, species: base.species))
+    }
+
+    @Test func comparisonRequiresTwoDifferentPokemon() {
+        let first = pokemon(25)
+        #expect(PokemonComparison(first: first, second: first) == nil)
+        #expect(PokemonComparison(first: first, second: pokemon(25, stats: [("hp", 60)])) == nil)
+        #expect(PokemonComparison(first: first, second: pokemon(26)) != nil)
+    }
+
+    @Test func selectionLimitsThePairWithoutReplacingAnExistingPick() {
+        var selection = PokemonComparisonSelection()
+        #expect(selection.comparison == nil)
+        selection.toggle(pokemon(25))
+        #expect(selection.comparison == nil)
+        selection.toggle(pokemon(26))
+        selection.toggle(pokemon(94))
+        #expect(selection.pokemon.map(\.id) == [25, 26])
+        #expect(selection.isFull)
+        #expect(selection.comparison?.first.id == 25)
+        #expect(selection.comparison?.second.id == 26)
+    }
+
+    @Test func selectionUsesIdentityAndAllowsReplacementOrCancellation() {
+        var selection = PokemonComparisonSelection()
+        selection.toggle(pokemon(25))
+        selection.toggle(pokemon(26))
+        selection.toggle(pokemon(25, stats: [("hp", 60)]))
+        #expect(selection.pokemon.map(\.id) == [26])
+        #expect(selection.comparison == nil)
+        selection.toggle(pokemon(94))
+        #expect(selection.comparison?.first.id == 26)
+        #expect(selection.comparison?.second.id == 94)
+        selection.remove(id: 26)
+        #expect(selection.pokemon.map(\.id) == [94])
+        selection.clear()
+        #expect(selection.pokemon.isEmpty)
+        #expect(!selection.isFull)
+    }
+
+    @Test func statsAreMatchedByNameInsteadOfTheirPositionInTheResponse() throws {
+        let comparison = try #require(PokemonComparison(
+            first: pokemon(25, stats: [("speed", 90), ("hp", 35), ("attack", 55)]),
+            second: pokemon(26, stats: [("attack", 90), ("hp", 60), ("speed", 110)])))
+        #expect(comparison.stats.map(\.name) == ["hp", "attack", "speed"])
+        #expect(comparison.stats.map(\.firstValue) == [35, 55, 90])
+        #expect(comparison.stats.map(\.secondValue) == [60, 90, 110])
+        #expect(comparison.stats.first?.leadingSide == .second)
+        #expect(comparison.stats.first?.difference == 25)
+    }
+
+    @Test func missingStatsAreNotReportedAsZeroOrAsAWinner() throws {
+        let comparison = try #require(PokemonComparison(
+            first: pokemon(25, stats: [("hp", 35), ("accuracy", 100)]),
+            second: pokemon(26, stats: [("hp", 35), ("speed", 110)])))
+        #expect(comparison.stats.map(\.name) == ["hp", "speed", "accuracy"])
+        let speed = try #require(comparison.stats.first { $0.name == "speed" })
+        #expect(speed.firstValue == nil)
+        #expect(speed.secondValue == 110)
+        #expect(speed.leadingSide == nil)
+        #expect(speed.difference == nil)
+        #expect(comparison.stats.first?.leadingSide == nil)
+        #expect(comparison.stats.first?.difference == 0)
+    }
+
+    @Test func sharedScaleFitsBothPokemonAndHandlesMissingStats() throws {
+        let high = try #require(PokemonComparison(
+            first: pokemon(25, stats: [("hp", 255)]), second: pokemon(26)))
+        #expect(high.statMaximum == 255)
+        let ordinary = try #require(PokemonComparison(first: pokemon(25), second: pokemon(26)))
+        #expect(ordinary.statMaximum == 150)
+        let empty = try #require(PokemonComparison(first: pokemon(25, stats: []), second: pokemon(26, stats: [])))
+        #expect(empty.stats.isEmpty)
+        #expect(empty.statMaximum == 150)
+    }
+}

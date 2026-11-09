@@ -12,7 +12,7 @@ let package = Package(
             exclude: [
                 "Domain/FavoritePokemon.swift", "Assets.xcassets", "Preview Content", "Resources",
                 "PokedexViperApp.swift",
-                "Screens/PokedexSearch/View", "Screens/PokedexSearch/Router",
+                "Screens/PokedexSearch/View", "Screens/PokedexSearch/Router", "Screens/PokemonComparison",
                 "pikachuRunning.gif", "pokeball-splash.gif", "pokeboll-loading.gif",
             ],
             sources: [

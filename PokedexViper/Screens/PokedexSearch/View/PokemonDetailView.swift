@@ -72,7 +72,7 @@ struct PokemonDetailView: View {
         .padding(.top, 48)
         .padding(.bottom, 24)
         .background(.background, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 16)
     }
 
     private func loadDescription() async {

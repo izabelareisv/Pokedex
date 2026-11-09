@@ -10,6 +10,8 @@ struct PokedexView: View {
     @State private var selectedType: String?
     @State private var selectedSort: PokemonSortOption = .pokedex
     @State private var favoritesOnly = false
+    @State private var isSelectingForComparison = false
+    @State private var comparisonSelection = PokemonComparisonSelection()
     @Query private var favorites: [FavoritePokemon]
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -41,9 +43,30 @@ struct PokedexView: View {
                 content
             }
             .background(Color(.systemGroupedBackground))
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if isSelectingForComparison { comparisonBar }
+            }
             .navigationTitle("Pokédex")
-            .navigationDestination(for: Pokemon.self) { pokemon in
-                router.destination(for: pokemon, presenter: presenter)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        isSelectingForComparison.toggle()
+                        if !isSelectingForComparison { comparisonSelection.clear() }
+                    } label: {
+                        if isSelectingForComparison {
+                            Text("Cancel")
+                        } else {
+                            Label("Compare", systemImage: "rectangle.split.2x1")
+                                .labelStyle(.titleAndIcon)
+                        }
+                    }
+                    .accessibilityHint(isSelectingForComparison
+                        ? "Cancels comparison selection"
+                        : "Select two Pokémon to compare their stats, types and abilities")
+                }
+            }
+            .navigationDestination(for: SearchRouter.Route.self) { route in
+                router.destination(for: route, presenter: presenter)
             }
             .task {
                 connectivity.start()
@@ -67,6 +90,65 @@ struct PokedexView: View {
             }
         }
         .tint(DesignSystem.Colors.accent)
+    }
+
+    private var comparisonBar: some View {
+        VStack(spacing: 10) {
+            Text("Select 2 Pokémon to compare (\(comparisonSelection.pokemon.count)/2)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+                ForEach(0..<2, id: \.self) { index in
+                    comparisonSlot(index: index)
+                }
+            }
+            Button {
+                if let comparison = comparisonSelection.comparison {
+                    router.showComparison(comparison)
+                }
+            } label: {
+                Text("Compare Pokémon")
+                    .frame(maxWidth: .infinity, minHeight: 32)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(comparisonSelection.comparison == nil)
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 12)
+        .background(.regularMaterial)
+    }
+
+    @ViewBuilder private func comparisonSlot(index: Int) -> some View {
+        if comparisonSelection.pokemon.indices.contains(index) {
+            let pokemon = comparisonSelection.pokemon[index]
+            Button {
+                comparisonSelection.remove(id: pokemon.id)
+            } label: {
+                HStack(spacing: 8) {
+                    Text(pokemon.name)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                    Spacer(minLength: 0)
+                    Image(systemName: "xmark.circle.fill")
+                }
+                .font(.subheadline.weight(.medium))
+                .padding(.horizontal, 12)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(DesignSystem.Colors.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Remove \(pokemon.name) from comparison")
+        } else {
+            Text("Pokémon \(index + 1)")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(.secondary.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [4]))
+                }
+                .accessibilityLabel("Select Pokémon \(index + 1)")
+        }
     }
 
     @ViewBuilder private var offlineBanner: some View {
@@ -242,12 +324,21 @@ struct PokedexView: View {
                 ) {
                     ForEach(pokemon) { item in
                         Button {
-                            router.showDetails(item)
+                            if isSelectingForComparison {
+                                comparisonSelection.toggle(item)
+                            } else {
+                                router.showDetails(item)
+                            }
                         } label: {
-                            PokemonCardView(pokemon: item, isFavorite: favoriteIDs.contains(item.id))
+                            PokemonCardView(
+                                pokemon: item,
+                                isFavorite: favoriteIDs.contains(item.id),
+                                isSelectingForComparison: isSelectingForComparison,
+                                isSelectedForComparison: comparisonSelection.contains(item))
                         }
                         .buttonStyle(.plain)
-                        .accessibilityHint("Opens Pokémon details")
+                        .disabled(isSelectingForComparison && comparisonSelection.isFull && !comparisonSelection.contains(item))
+                        .accessibilityHint(isSelectingForComparison ? "Toggles selection for comparison" : "Opens Pokémon details")
                         .onAppear {
                             if item.id == pokemon.last?.id && searchText.isEmpty && selectedType == nil
                                 && !favoritesOnly && presenter.pageError == nil
